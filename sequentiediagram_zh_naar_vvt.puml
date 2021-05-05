@@ -1,0 +1,35 @@
+@startuml
+autonumber
+actor Transfer_vpk_aanbieder
+database EPD_db
+participant EPD_api
+participant Transfer_app
+database Transfer_app_RS
+participant Transfer_app_NutsNode
+participant ECD_NutsNode
+participant ECD_app
+database ECD_Tasks_RS
+database ECD_db
+
+Transfer_vpk_aanbieder -> Transfer_app
+Transfer_app --> Transfer_app_RS: FHIR Task
+Transfer_app --> Transfer_app_NutsNode: get Token
+Transfer_app <-- Transfer_app_NutsNode: Token
+Transfer_app --> Transfer_app_NutsNode: get endpoint Afnemer
+Transfer_app <-- Transfer_app_NutsNode: endpoint url
+Transfer_app --> ECD_app: Notification (empty POST)
+
+ECD_NutsNode <-- ECD_app: get Token
+ECD_NutsNode --> ECD_app: Token
+Transfer_app_RS <-- ECD_app: GET FHIR Task
+Transfer_app_RS --> ECD_app: FHIR Task
+ECD_app --> ECD_Tasks_RS: POST/PUT FHIR Task
+ECD_NutsNode <-- ECD_app: get Token
+ECD_NutsNode --> ECD_app: Token
+Transfer_app_RS <-- ECD_app: GET FHIR Resources Overdracht
+Transfer_app_RS --> EPD_api: GET X
+EPD_api --> EPD_db: SQL X
+EPD_api <-- EPD_db: SQL Result
+Transfer_app_RS <-- EPD_api: X
+Transfer_app_RS --> ECD_db: FHIR Resources Overdracht
+@enduml
