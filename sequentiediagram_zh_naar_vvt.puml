@@ -12,24 +12,33 @@ database ECD_Tasks_RS
 database ECD_db
 
 Transfer_vpk_aanbieder -> Transfer_app
-Transfer_app --> Transfer_app_RS: FHIR Task
-Transfer_app --> Transfer_app_NutsNode: get Token
+Transfer_app --> Transfer_app_RS: FHIR Task 
+Transfer_app --> Transfer_app_NutsNode: get Token 
+note left: is dit een access token of authenticatietoken?
 Transfer_app <-- Transfer_app_NutsNode: Token
 Transfer_app --> Transfer_app_NutsNode: get endpoint Afnemer
+note left: welke zoekparameters kan je/moet je meegeven? 
 Transfer_app <-- Transfer_app_NutsNode: endpoint url
 Transfer_app --> ECD_app: Notification (empty POST)
 
-ECD_NutsNode <-- ECD_app: get Token
+
+ECD_NutsNode <-- ECD_app: get Token 
+note right: is hier geen gebruiker die iets moet doen?wat voor token is dit dan?
 ECD_NutsNode --> ECD_app: Token
-Transfer_app_RS <-- ECD_app: GET FHIR Task
+Transfer_app_RS <-- ECD_app: GET FHIR Task 
+note right: de ontvangen notification geeft aan waar de task resource opgehaald kan worden?
 Transfer_app_RS --> ECD_app: FHIR Task
 ECD_app --> ECD_Tasks_RS: POST/PUT FHIR Task
-ECD_NutsNode <-- ECD_app: get Token
+ECD_NutsNode <-- ECD_app: get Token 
+note right: dit is een gebruikers authenticatie token toch?
 ECD_NutsNode --> ECD_app: Token
-Transfer_app_RS <-- ECD_app: GET FHIR Resources Overdracht
+group For every FHIR resource
+Transfer_app_RS <-- ECD_app: GET FHIR Resources Overdracht 
+
 Transfer_app_RS --> EPD_api: GET X
 EPD_api --> EPD_db: SQL X
 EPD_api <-- EPD_db: SQL Result
 Transfer_app_RS <-- EPD_api: X
 Transfer_app_RS --> ECD_db: FHIR Resources Overdracht
+end
 @enduml
