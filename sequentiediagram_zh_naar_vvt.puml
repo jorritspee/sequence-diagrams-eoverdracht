@@ -1,42 +1,79 @@
 @startuml
 autonumber
 actor zh.vpk
+box versturend.epd #FFFFDD
 database zh.epd.db
 participant zh.epd.api
+end box
+box versturend.knooppunt #FFFFDD
 participant zh.broker.app
-participant zh.broker.authserver
+participant zh.broker.authnserver
+participant zh.broker.authzserver
 database zh.broker.rs
-participant zh.broker.nutsnode.authserver
-participant zh.broker.nutsnode.registry
+participant zh.broker.nutsnode
+end box
+
+box generieke voorzieningen #DDFFFF
+participant nuts.distributedregistry
+participant zorgAB
+participant irma.authnserver
+end box
+
+box ontvangend.knooppunt #FFDDFF
 participant vvt.ecd.nutsnode
+end box
+box ontvangend.ecd #FFDDFF
 participant vvt.ecd.app
 actor vvt.vpk
+end box
 
 zh.vpk --> zh.broker.app: log in
+zh.broker.app --> zh.broker.authnserver: request id token 
+zh.broker.app <-- zh.broker.authnserver: id token
+zh.broker.app --> zh.broker.authzserver: request access token (met id-token)
+zh.broker.app <-- zh.broker.authzserver: access token
 zh.broker.app --> zh.broker.rs: FHIR Task 
-zh.broker.app --> zh.broker.nutsnode.authserver: request access en id token 
-note left: is het nog nodig eerst een authorization code op te halen en zo ja waar?
-zh.broker.app <-- zh.broker.nutsnode.authserver: access en id token
-zh.broker.app --> zh.broker.nutsnode.registry: get endpoint vvt
-note left: welke zoekparameters kan je/moet je meegeven? 
-zh.broker.app <-- zh.broker.nutsnode.registry: endpoint url
+zh.broker.app --> zh.broker.nutsnode: get endpoint vvt (params: Gevelnaam aanbieder, type dienst, agb, ...)
+zh.broker.nutsnode --> nuts.distributedregistry: get endpoint 
+nuts.distributedregistry --> zorgAB: get endpoint als nodig (geen token nodig)
+nuts.distributedregistry <-- zorgAB: endpoint
+nuts.distributedregistry --> zh.broker.nutsnode: endpoint
+zh.broker.app <-- zh.broker.nutsnode: endpoint url
 zh.broker.app --> vvt.ecd.app: Notification (empty POST)
 
 vvt.ecd.app <-- vvt.vpk: neem notificatie waar
-vvt.ecd.nutsnode <-- vvt.ecd.app: request access en id token 
-vvt.ecd.nutsnode --> vvt.ecd.app: access en id token
-zh.broker.rs <-- vvt.ecd.app: GET /Task 
-note right: GET request naar /Task voorzien van juiste tokens
+vvt.ecd.nutsnode <-- vvt.ecd.app: request id token
+vvt.ecd.nutsnode --> irma.authnserver: request id token
+irma.authnserver --> vvt.vpk: authenticatie request
+irma.authnserver <-- vvt.vpk: authenticatie bevestiging
+vvt.ecd.nutsnode <-- irma.authnserver: id token
+vvt.ecd.nutsnode --> vvt.ecd.app: id token
+zh.broker.rs <-- vvt.ecd.app: GET /Task (met ID-token)
+zh.broker.rs --> zh.broker.authzserver: request access token (met id-token)
+zh.broker.rs <-- zh.broker.authzserver: access token
 zh.broker.rs --> vvt.ecd.app: FHIR Task
-vvt.ecd.nutsnode <-- vvt.ecd.app: request access en id token 
-note right: dit is een gebruikers authenticatie token toch?
-vvt.ecd.nutsnode --> vvt.ecd.app: access en id token
-zh.broker.rs <-- vvt.ecd.app: GET /Composition FHIR Resources Overdracht 
-note right: loop niet nodig want get gaat om 1 Composition resource waar alle losse resources in zitten
-zh.broker.rs --> zh.epd.api: GET X
-zh.epd.api --> zh.epd.db: SQL X
-zh.epd.api <-- zh.epd.db: SQL Result
-zh.broker.rs <-- zh.epd.api: X
-zh.broker.rs --> vvt.ecd.app: FHIR Composition Overdracht
-vvt.ecd.app --> vvt.vpk: present overdracht
+vvt.ecd.nutsnode <-- vvt.ecd.app: request id token 
+vvt.ecd.nutsnode --> vvt.ecd.app: id token (hergebruik id-token task?)
+vvt.ecd.app --> zh.broker.rs: GET Composition FHIR Resource eOverdracht (met id-token)
+zh.broker.rs --> zh.broker.authzserver: request access token (met id-token)
+zh.broker.rs <-- zh.broker.authzserver: access token
+alt composition
+    zh.broker.rs --> zh.epd.api: GET X
+    zh.epd.api --> zh.epd.db: SQL X
+    zh.epd.api <-- zh.epd.db: SQL Result
+    zh.broker.rs <-- zh.epd.api: X
+    zh.broker.rs -> vvt.ecd.app: Composition FHIR Resource eOverdracht
+else losse resources
+    loop For every FHIR resource
+        vvt.ecd.app -> zh.broker.rs: GET FHIR Resources Overdracht
+        zh.broker.rs --> zh.epd.api: GET X
+        zh.epd.api --> zh.epd.db: SQL X
+        zh.epd.api <-- zh.epd.db: SQL Result
+        zh.broker.rs <-- zh.epd.api: X
+        zh.broker.rs -> vvt.ecd.app: FHIR Resource 
+    end
+end
+
+zh.broker.rs -> vvt.ecd.app: FHIR Composition Overdracht
+vvt.ecd.app -> vvt.vpk: present overdracht
 @enduml
